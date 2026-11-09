@@ -1,0 +1,5 @@
+.env
+instance/
+*.db
+migrations/env.py
+__pycache__/

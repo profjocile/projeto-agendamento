@@ -1,70 +1,100 @@
 # Setup do ambiente
 
+O projeto usa [uv](https://docs.astral.sh/uv/) para gerenciar Python, ambiente virtual e dependências. Não há `requirements.txt`: as dependências ficam em `pyproject.toml` e o `uv.lock` garante versões reproduzíveis.
+
 ## Pré-requisitos
 
-- Python 3.11 ou superior
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) instalado
 - Git
 
-## Passo a passo
+O uv instala a versão correta do Python automaticamente (definida em `.python-version`).
+
+## Primeira vez (criando o projeto)
 
 ```bash
-# 1. Clonar o repositório
+uv init barbearia && cd barbearia
+
+# Dependências de produção
+uv add flask flask-sqlalchemy flask-migrate flask-login flask-wtf python-dotenv
+
+# Dependências de desenvolvimento
+uv add --dev pytest
+```
+
+## Clonando um projeto existente
+
+```bash
 git clone <url-do-repositorio> barbearia
 cd barbearia
-
-# 2. Criar e ativar o ambiente virtual
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-# 3. Instalar dependências
-pip install -r requirements.txt
-
-# 4. Configurar variáveis de ambiente
+uv sync                          # cria .venv e instala tudo do uv.lock
 cp .env.example .env             # edite o SECRET_KEY
-
-# 5. Criar o banco (SQLite) com as migrações
-export FLASK_APP=run.py          # Windows: set FLASK_APP=run.py
-flask db init                    # apenas na primeira vez do projeto
-flask db migrate -m "inicial"
-flask db upgrade
-
-# 6. Rodar a aplicação
-flask run --debug
 ```
 
-A aplicação ficará disponível em `http://127.0.0.1:5000`.
-
-## Variáveis de ambiente
-
-| Variável | Descrição | Exemplo |
-|---|---|---|
-| `SECRET_KEY` | Chave de sessão e CSRF (obrigatória em produção) | `gerar-valor-aleatorio` |
-| `FLASK_APP` | Ponto de entrada | `run.py` |
-
-## Fluxo de migrações
-
-Ao alterar `models.py`:
+## Banco de dados (SQLite + migrações)
 
 ```bash
-flask db migrate -m "descrição da mudança"
-flask db upgrade
+uv run flask --app main db init                    # apenas na primeira vez do projeto
+uv run flask --app main db migrate -m "inicial"
+uv run flask --app main db upgrade
 ```
 
-Revise sempre o arquivo gerado em `migrations/versions/` antes do `upgrade`.
+O arquivo do banco é criado em `instance/barbearia.db`.
+
+## Rodando a aplicação
+
+```bash
+uv run flask --app main run --debug
+```
+
+Disponível em `http://127.0.0.1:5000`. Não é preciso ativar o `.venv`: o `uv run` já usa o ambiente correto.
 
 ## Testes
 
 ```bash
-pytest
+uv run pytest
 ```
+
+## Variáveis de ambiente
+
+O Flask carrega o `.env` automaticamente quando `python-dotenv` está instalado.
+
+| Variável | Descrição | Exemplo |
+|---|---|---|
+| `SECRET_KEY` | Chave de sessão e CSRF (obrigatória em produção) | `gerar-valor-aleatorio` |
+
+Gerar uma chave: `uv run python -c "import secrets; print(secrets.token_hex(32))"`
+
+## Fluxo de migrações
+
+Ao alterar `app/models.py`:
+
+```bash
+uv run flask --app main db migrate -m "descrição da mudança"
+uv run flask --app main db upgrade
+```
+
+Revise o arquivo gerado em `migrations/versions/` antes do `upgrade`.
+
+## Gerenciando dependências
+
+| Ação | Comando |
+|---|---|
+| Adicionar pacote | `uv add <pacote>` |
+| Adicionar pacote de dev | `uv add --dev <pacote>` |
+| Remover pacote | `uv remove <pacote>` |
+| Atualizar o lock | `uv lock --upgrade` |
+| Sincronizar ambiente | `uv sync` |
+
+Sempre faça commit do `pyproject.toml` e do `uv.lock`.
 
 ## Problemas comuns
 
 | Sintoma | Solução |
 |---|---|
-| `No such table` | Rode `flask db upgrade` |
-| `Could not locate a Flask application` | Defina `FLASK_APP=run.py` |
-| Banco corrompido em desenvolvimento | Apague `instance/barbearia.db` e rode `flask db upgrade` |
+| `No such table` | Rode `uv run flask --app main db upgrade` |
+| `Could not locate a Flask application` | Confira se o `main.py` expõe a variável `app` e use `--app main` |
+| `ModuleNotFoundError` | Rode `uv sync` |
+| Banco corrompido em desenvolvimento | Apague `instance/barbearia.db` e rode `db upgrade` |
 
 ## Convenção de commits
 
